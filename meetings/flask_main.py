@@ -39,6 +39,7 @@ CLIENT_SECRET_FILE = CONFIG.GOOGLE_KEY_FILE  # You'll need this
 APPLICATION_NAME = 'MeetMe class project'
 
 Calendars_checked = {}
+Cal_id_2_summary = {}
 
 #############################
 #
@@ -72,16 +73,9 @@ def choose():
 
   flask.g.calendars = list_calendars(gcal_service)
   flask.g.busy_list = get_busy(gcal_service, flask.g.calendars)
-  flask.flash(flask.g.busy_list)
 
   return render_template('index.html')
 
-
-def list_busy(busy_list):
-  for calender in busy_list:
-    for one_busy_chunt in busy_list[calendar]:
-      start = one_busy_chunt['start']
-      end = one_busy_chunt['end']
 #####
 #
 #  Option setting:  Buttons or forms that add some
@@ -101,8 +95,6 @@ def setrange():
   widget.
   """
   app.logger.debug("Entering setrange")
-  flask.flash("Setrange gave us '{}'".format(
-      request.form.get('daterange')))
   daterange = request.form.get('daterange')
   flask.session['daterange'] = daterange
   daterange_parts = daterange.split()
@@ -131,7 +123,7 @@ def init_session_values():
   Note this must be run in app context ... can't call from main. 
   """
   # Default date span = tomorrow to 1 week from now
-  now = arrow.now('local')     # We really should be using tz from browser
+  now = arrow.now('local').floor('day')     # We really should be using tz from browser
   
   # Default time span (hh : min) ~ (hh + 2 : min)
   flask.session["begin_time"] = now.format("HH:mm")
@@ -182,13 +174,13 @@ def get_busy(service, calendars):
   body = {
       "timeMin": flask.session["begin_date"],
       "timeMax": flask.session["end_date"],
-      "timezone": "America/Los_Angeles"
   }
 
   for calendar in calendars:
     if calendar['selected']:
       items.append({"id": calendar['id']})
       keys.append(calendar['id'])
+
   body["items"] = items
   
   app.logger.debug("Body is like " + str(body))
@@ -197,9 +189,40 @@ def get_busy(service, calendars):
 
   results = []
   for key in keys:
+    flash_result = Cal_id_2_summary[key] + ":{"
+    for chunk in busy_list[key]['busy']:
+      flash_result += handle_busy_list(chunk)
+    flash_result += '}'
+    flask.flash(flash_result)
     results.append(busy_list[key]['busy'])
   return results
 
+def handle_busy_list(one_stat_end_time_chunt):
+  '''
+  At default, google response of times are in UTC timezone;
+  Making them into the same day as begin_date
+  '''
+  set_range_start = arrow.get(flask.session['begin_date'])
+
+  begin_date = set_range_start.format("MM/DD/YYYY")
+  busy_start_time = arrow.get(one_stat_end_time_chunt['start']).to('local')
+  busy_end_time = arrow.get(one_stat_end_time_chunt['end']).to('local')
+  set_range_end = arrow.get(flask.session['end_date'])
+
+  temp_busy_start_time = arrow.get(begin_date + ' ' + busy_start_time.format("HH:mm"), "MM/DD/YYYY HH:mm").replace(
+        tzinfo=tz.tzlocal())
+  temp_busy_end_time = arrow.get(begin_date + ' ' + busy_end_time.format("HH:mm"), "MM/DD/YYYY HH:mm").replace(
+        tzinfo=tz.tzlocal())
+  temp_set_range_end = arrow.get(begin_date + ' ' + set_range_end.format("HH:mm"), "MM/DD/YYYY HH:mm").replace(
+        tzinfo=tz.tzlocal())
+
+  result = ""
+  if temp_busy_start_time >= set_range_start and temp_busy_end_time <= temp_set_range_end:
+    result += busy_start_time.format("MM/DD/YYYY HH:mm")
+    result += "~"
+    result += busy_end_time.format("MM/DD/YYYY HH:mm")
+    result += " ; "
+  return result
 
 def list_calendars(service):
   """
@@ -220,13 +243,13 @@ def list_calendars(service):
     else:
       desc = "(no description)"
     summary = cal["summary"]
+    Cal_id_2_summary[id] = summary
+    selected = False
     # Optional binary attributes with False as default
     if ("selected" in cal) and cal["selected"]:
       if len(Calendars_checked) == 0 or Calendars_checked[id]:
         app.logger.debug("Calendars_checked " + str(Calendars_checked))
         selected = True
-      else:
-        selected = False
     primary = ("primary" in cal) and cal["primary"]
 
     result.append(

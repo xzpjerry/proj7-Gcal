@@ -18,11 +18,22 @@ env:
 # 'make run' runs Flask's built-in test server, 
 #  with debugging turned on unless it is unset in CONFIG.py
 # 
+credentials:  meetings/credentials.ini
+
+meetings/credentials.ini:
+	echo "You just install the database and credentials.ini for it"
+
 run:	env
 	($(INVENV) cd meetings; python3 flask_main.py) ||  true
 
 test:	env
 	$(INVENV) cd meetings; nosetests
+
+start:	env credentials
+	bash start.sh
+
+stop:	env credentials
+	bash stop.sh
 
 
 ##
