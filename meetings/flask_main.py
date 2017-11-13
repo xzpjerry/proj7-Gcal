@@ -72,6 +72,7 @@ def choose():
   app.logger.debug("Returned from get_gcal_service")
 
   flask.g.calendars = list_calendars(gcal_service)
+  app.logger.debug("List calendars done. Flask.g.calendars: " + str(flask.g.calendars))
   flask.g.busy_list = get_busy(gcal_service, flask.g.calendars)
 
   return render_template('index.html')
@@ -197,32 +198,55 @@ def get_busy(service, calendars):
     results.append(busy_list[key]['busy'])
   return results
 
-def handle_busy_list(one_stat_end_time_chunt):
+def handle_busy_list(one_stat_end_time_chunk):
   '''
   At default, google response of times are in UTC timezone;
   Making them into the same day as begin_date
   '''
-  set_range_start = arrow.get(flask.session['begin_date'])
+  set_range_start = arrow.get(flask.session['begin_time'], "HH:mm")
+  set_range_end = arrow.get(flask.session['end_time'], "HH:mm")
 
-  begin_date = set_range_start.format("MM/DD/YYYY")
-  busy_start_time = arrow.get(one_stat_end_time_chunt['start']).to('local')
-  busy_end_time = arrow.get(one_stat_end_time_chunt['end']).to('local')
-  set_range_end = arrow.get(flask.session['end_date'])
+  busy_start_time = arrow.get(one_stat_end_time_chunk['start']).to('local')
+  busy_end_time = arrow.get(one_stat_end_time_chunk['end']).to('local')
+  delta_days = (busy_end_time - busy_start_time).days
 
-  temp_busy_start_time = arrow.get(begin_date + ' ' + busy_start_time.format("HH:mm"), "MM/DD/YYYY HH:mm").replace(
-        tzinfo=tz.tzlocal())
-  temp_busy_end_time = arrow.get(begin_date + ' ' + busy_end_time.format("HH:mm"), "MM/DD/YYYY HH:mm").replace(
-        tzinfo=tz.tzlocal())
-  temp_set_range_end = arrow.get(begin_date + ' ' + set_range_end.format("HH:mm"), "MM/DD/YYYY HH:mm").replace(
-        tzinfo=tz.tzlocal())
+  busy_start_time = arrow.get(busy_start_time.format("HH:mm"), "HH:mm")
+  busy_end_time = arrow.get(busy_end_time.format("HH:mm"), "HH:mm")
+
+  busy_end_time = busy_end_time.shift(days=delta_days)
+  set_range_end = set_range_end.shift(days=delta_days)
+  
+  busy_duration = busy_end_time - busy_start_time
+  range_duration = set_range_end - set_range_start
 
   result = ""
-  if temp_busy_start_time >= set_range_start and temp_busy_end_time <= temp_set_range_end:
-    result += busy_start_time.format("MM/DD/YYYY HH:mm")
+  flag = False
+  '''
+  #The following debug info don't work well with app.logger 
+  print("**************************************")
+  print("Set_range_start@", str(set_range_start))
+  print("Set_range_end@", str(set_range_end))
+  print("busy_start@", str(busy_start_time))
+  print("busy_end@", str(busy_end_time))
+  print("Busy duration: ", str(busy_duration))
+  print("Range duration: ", str(range_duration))
+  print("Busy >= Range", str(busy_duration >= range_duration))
+  print("Busy < Range", str(busy_duration < range_duration))
+  print("**************************************\n")
+  '''
+
+  if busy_duration >= range_duration:
+    flag =(set_range_start >= busy_start_time  and busy_end_time >= set_range_end)
+  else:
+    flag = (busy_start_time >= set_range_start and set_range_end >= busy_end_time)
+
+  if flag:
+    result += arrow.get(one_stat_end_time_chunk['start']).to('local').format("MM/DD/YYYY HH:mm")
     result += "~"
-    result += busy_end_time.format("MM/DD/YYYY HH:mm")
-    result += " ; "
+    result += arrow.get(one_stat_end_time_chunk['end']).to('local').format("MM/DD/YYYY HH:mm")
+    result += "  ;"
   return result
+
 
 def list_calendars(service):
   """
@@ -246,8 +270,7 @@ def list_calendars(service):
     Cal_id_2_summary[id] = summary
     selected = False
     # Optional binary attributes with False as default
-    if ("selected" in cal) and cal["selected"]:
-      if len(Calendars_checked) == 0 or Calendars_checked[id]:
+    if len(Calendars_checked) == 0 or Calendars_checked[id]:
         app.logger.debug("Calendars_checked " + str(Calendars_checked))
         selected = True
     primary = ("primary" in cal) and cal["primary"]
@@ -314,6 +337,7 @@ def _update_time_range():
   flask.session["begin_time"] = begin_time
   flask.session["end_time"] = end_time
   return flask.jsonify(success=True)
+
 
 @app.route('/_updateSelected', methods=['GET', 'POST'])
 def _update_cal_selected():
