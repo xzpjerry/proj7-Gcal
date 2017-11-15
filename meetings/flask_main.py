@@ -20,6 +20,8 @@ import httplib2   # used in oauth2 flow
 # Google API for services
 from apiclient import discovery
 
+import model
+
 ###
 # Globals
 ###
@@ -40,6 +42,7 @@ APPLICATION_NAME = 'MeetMe class project'
 
 Calendars_checked = {}
 Cal_id_2_summary = {}
+Set_range = None
 
 #############################
 #
@@ -105,6 +108,8 @@ def setrange():
 
   flask.session['begin_date'] = interpret_date(begin_date)
   flask.session['end_date'] = interpret_date(end_date)
+  Set_range = model.calendar_event(flask.session['begin_date'], flask.session['end_date'])
+
   app.logger.debug("Setrange parsed {} - {}  dates as {} - {}".format(
       begin_date, end_date,
       flask.session['begin_date'], flask.session['end_date']))
@@ -168,6 +173,7 @@ def next_day(isotext):
 
 def get_busy(service, calendars):
   app.logger.debug("Entering list_busy")
+  Set_range = model.calendar_event(flask.session['begin_date'], flask.session['end_date'])
 
   items = []
   keys = []
@@ -188,64 +194,18 @@ def get_busy(service, calendars):
 
   busy_list = service.freebusy().query(body=body).execute()["calendars"]
 
+  flask.flash("Showing busy time from %s to %s during the period of time." %(flask.session['begin_time'], flask.session['end_time']))
   results = []
   for key in keys:
     flash_result = Cal_id_2_summary[key] + ":{"
     for chunk in busy_list[key]['busy']:
-      flash_result += handle_busy_list(chunk)
+      tmp_event = model.calendar_event(chunk['start'], chunk['end'])
+      if Set_range.compare_to(tmp_event) == model.event_compare_result.within:
+        flash_result += str(tmp_event)
     flash_result += '}'
     flask.flash(flash_result)
     results.append(busy_list[key]['busy'])
   return results
-
-def handle_busy_list(one_stat_end_time_chunk):
-  '''
-  At default, google response of times are in UTC timezone;
-  Making them into the same day as begin_date
-  '''
-  set_range_start = arrow.get(flask.session['begin_time'], "HH:mm")
-  set_range_end = arrow.get(flask.session['end_time'], "HH:mm")
-
-  busy_start_time = arrow.get(one_stat_end_time_chunk['start']).to('local')
-  busy_end_time = arrow.get(one_stat_end_time_chunk['end']).to('local')
-  delta_days = (busy_end_time - busy_start_time).days
-
-  busy_start_time = arrow.get(busy_start_time.format("HH:mm"), "HH:mm")
-  busy_end_time = arrow.get(busy_end_time.format("HH:mm"), "HH:mm")
-
-  busy_end_time = busy_end_time.shift(days=delta_days)
-  set_range_end = set_range_end.shift(days=delta_days)
-  
-  busy_duration = busy_end_time - busy_start_time
-  range_duration = set_range_end - set_range_start
-
-  result = ""
-  flag = False
-  '''
-  #The following debug info don't work well with app.logger 
-  print("**************************************")
-  print("Set_range_start@", str(set_range_start))
-  print("Set_range_end@", str(set_range_end))
-  print("busy_start@", str(busy_start_time))
-  print("busy_end@", str(busy_end_time))
-  print("Busy duration: ", str(busy_duration))
-  print("Range duration: ", str(range_duration))
-  print("Busy >= Range", str(busy_duration >= range_duration))
-  print("Busy < Range", str(busy_duration < range_duration))
-  print("**************************************\n")
-  '''
-
-  if busy_duration >= range_duration:
-    flag =(set_range_start >= busy_start_time  and busy_end_time >= set_range_end)
-  else:
-    flag = (busy_start_time >= set_range_start and set_range_end >= busy_end_time)
-
-  if flag:
-    result += arrow.get(one_stat_end_time_chunk['start']).to('local').format("MM/DD/YYYY HH:mm")
-    result += "~"
-    result += arrow.get(one_stat_end_time_chunk['end']).to('local').format("MM/DD/YYYY HH:mm")
-    result += "  ;"
-  return result
 
 
 def list_calendars(service):
