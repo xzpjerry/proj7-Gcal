@@ -200,7 +200,7 @@ def get_busy(service, calendars):
     flash_result = Cal_id_2_summary[key] + ":{"
     for chunk in busy_list[key]['busy']:
       tmp_event = model.calendar_event(chunk['start'], chunk['end'])
-      if Set_range.compare_to(tmp_event) == model.event_compare_result.within:
+      if tmp_event.compare_to(Set_range) == model.event_compare_result.within:
         flash_result += str(tmp_event)
     flash_result += '}'
     flask.flash(flash_result)
