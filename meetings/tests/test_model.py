@@ -24,17 +24,17 @@ def test_without():
     test_case_start = now.shift(days=-1)
     test_case_end = test_case_start.shift(seconds=1)
     test_case = model.calendar_event(test_case_start, test_case_end)
-    assert RANGE.compare_to(test_case) == model.event_compare_result.without
+    assert test_case.compare_to(RANGE) == model.event_compare_result.without
 
     test_case_start = now.shift(hours=-3)
     test_case_end = test_case_start.shift(hours=2)
     test_case = model.calendar_event(test_case_start, test_case_end)
-    assert RANGE.compare_to(test_case) == model.event_compare_result.without
+    assert test_case.compare_to(RANGE) == model.event_compare_result.without
 
     test_case_start = then.shift(days=1)
     test_case_end = test_case_start.shift(hours=3)
     test_case = model.calendar_event(test_case_start, test_case_end)
-    assert RANGE.compare_to(test_case) == model.event_compare_result.without
+    assert test_case.compare_to(RANGE) == model.event_compare_result.without
 
     for i in range(1000):
         test_case_start = now.shift(days=random.randrange(range_day))
@@ -43,7 +43,7 @@ def test_without():
 
         test_case = model.calendar_event(test_case_start, test_case_end)
         logging.info(str(test_case))
-        assert RANGE.compare_to(test_case) == model.event_compare_result.without
+        assert test_case.compare_to(RANGE) == model.event_compare_result.without
         logging.info("Passed.")
 
         test_case_start = then.shift(days=random.randrange(-range_day, 0))
@@ -51,7 +51,7 @@ def test_without():
         test_case_end = test_case_start.shift(hours=1)
 
         logging.info(str(test_case))
-        assert RANGE.compare_to(test_case) == model.event_compare_result.without
+        assert test_case.compare_to(RANGE) == model.event_compare_result.without
         logging.info("Passed.")
 
 
@@ -60,35 +60,33 @@ def test_within():
     test_case_start = now.shift(days=1)
     test_case_end = test_case_start.shift(seconds=1)
     test_case = model.calendar_event(test_case_start, test_case_end)
-    logging.info(str(test_case))
-    logging.info(str(now))
-    logging.info(str(then))
-    assert RANGE.compare_to(test_case) == model.event_compare_result.within
+    assert test_case.compare_to(RANGE) == model.event_compare_result.within
 
     test_case_start = now.shift(hours=-3)
     test_case_end = test_case_start.shift(hours=4)
     test_case = model.calendar_event(test_case_start, test_case_end)
-    assert RANGE.compare_to(test_case) == model.event_compare_result.within
+    assert test_case.compare_to(RANGE) == model.event_compare_result.within
 
     test_case_start = then.shift(days=-1)
     test_case_end = test_case_start.shift(days=2)
     test_case = model.calendar_event(test_case_start, test_case_end)
-    assert RANGE.compare_to(test_case) == model.event_compare_result.within
+    assert test_case.compare_to(RANGE) == model.event_compare_result.within
 
     for i in range(1000):
         test_case_start = now.shift(days=random.randrange(range_day))
-        test_case_start = test_case_start.shift(hours=random.randrange(-(24-range_hour), -1))
+        test_case_start = test_case_start.shift(hours=random.randrange(1, range_hour))
         test_case_end = test_case_start.shift(hours=1)
 
         test_case = model.calendar_event(test_case_start, test_case_end)
         logging.info(str(test_case))
-        assert RANGE.compare_to(test_case) == model.event_compare_result.without
+        logging.info("Range: " + str(RANGE))
+        assert test_case.compare_to(RANGE) == model.event_compare_result.within
         logging.info("Passed.")
 
         test_case_start = then.shift(days=random.randrange(-range_day, 0))
-        test_case_start = test_case_end.shift(hours=random.randrange(1, (24-range_hour)))
+        test_case_start = test_case_end.shift(hours=random.randrange(1, range_hour))
         test_case_end = test_case_start.shift(hours=1)
 
         logging.info(str(test_case))
-        assert RANGE.compare_to(test_case) == model.event_compare_result.without
+        assert test_case.compare_to(RANGE) == model.event_compare_result.within
         logging.info("Passed.")

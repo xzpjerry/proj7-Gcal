@@ -39,23 +39,25 @@ class calendar_event:
         result += "Duration: %ss    );" %self.duration
         return result
 
-    def compare_to(self, eventB):
-        if self.start >= eventB.end:
+    def compare_to(self, eventB): 
+        if eventB.start >= self.end:
             return event_compare_result.without
 
-        if eventB.flag: # eventB has more than 1 day, it must be on our range
-            return event_compare_result.within # eventB is within self
+        if self.flag: # self has more than 1 day, it must be on our range
+            return event_compare_result.within # self is within eventB
         
-        if eventB.start_time >= self.end_time or self.start_time >= eventB.end_time:
-            return event_compare_result.without # eventB is without self
+        if self.start_time >= eventB.end_time or eventB.start_time >= self.end_time:
+            return event_compare_result.without # self is without range
         
         return event_compare_result.within
+
 
 
 '''
 a = calendar_event('2017-11-15T16:01:54.587619-08:00', '2017-11-23T00:01:54.587619-08:00')
 b = calendar_event('2017-11-16T16:01:54.587619-08:00', '2017-11-16T16:01:55.587619-08:00')
-print(a.compare_to(b))
-b = calendar_event('2017-11-16T13:20:24.889989-08:00', '2017-11-16T16:20:24.889989-08:00')
-print(a.compare_to(b))
+print(b.compare_to(a))
+b = calendar_event('2017-11-13T13:20:24.889989-08:00', '2017-11-14T16:20:24.889989-08:00')
+print(b.compare_to(a))
 '''
+
